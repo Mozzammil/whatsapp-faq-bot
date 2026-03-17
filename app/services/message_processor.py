@@ -1,32 +1,21 @@
-from app.config import settings
+from sqlalchemy.orm import Session
 from app.services.faq_service import get_faqs_by_business
+from app.utils.keyword_matcher import find_best_match
 from app.services.whatsapp_sender import send_message
-from app.utils.keyword_matcher import match_keywords
 
 
-async def process_message(payload):
-    try:
-        message = payload.message.lower()
-        business_number = payload.to
-        customer_number = payload.from_
+async def process_message(payload, db: Session):
+    user_message = payload.message.lower()
+    business_number = payload.to
 
-        print(f"Incoming message: {message} from {customer_number}")
+    # Fetch FAQs from DB
+    faqs = await get_faqs_by_business(db, business_number)
 
-        # Step 1: Fetch FAQs for this business
-        faqs = await get_faqs_by_business(business_number)
+    matched_faq = find_best_match(user_message, faqs)
 
-        # Step 2: Match message with FAQs
-        for faq in faqs:
-            if match_keywords(message, faq.keywords):
-                print(f"FAQ match found: {faq.answer}")
+    if matched_faq:
+        response = matched_faq.answer
+    else:
+        response = "Sorry, I couldn't understand your question."
 
-                await send_message(customer_number, faq.answer)
-                return
-
-        # Step 3: Fallback
-        print("No FAQ match found. Sending fallback.")
-
-        await send_message(customer_number, settings.FALLBACK_MESSAGE)
-
-    except Exception as e:
-        print(f"Error in processing message: {e}")
+    await send_message(payload.from_, response)
