@@ -41,7 +41,7 @@ FastAPI Webhook
    ↓
 Message Processor
    ↓
-FAQ Service (Mock DB)
+FAQ Service (PostgreSQL)
    ↓
 Keyword Matcher
    ↓
@@ -57,8 +57,10 @@ Response to Customer
 * Python 3.10+
 * FastAPI
 * Uvicorn
-* Pydantic
-* httpx (for API calls)
+* SQLAlchemy
+* PostgreSQL
+* Pydantic v2
+* httpx
 
 ---
 
@@ -73,6 +75,14 @@ whatsapp_faq_bot/
 │   │
 │   ├── api/
 │   │   └── webhook.py
+│   │
+│   ├── db/
+│   │   ├── session.py
+│   │   └── base.py
+│   │
+│   ├── models/
+│   │   ├── business.py
+│   │   └── faq.py
 │   │
 │   ├── services/
 │   │   ├── message_processor.py
@@ -116,6 +126,8 @@ POST /webhook/whatsapp
 Edit `app/config.py`:
 
 ```python
+DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/whatsappbot"
+
 WHATSAPP_API_URL = "https://graph.facebook.com/v18.0"
 WHATSAPP_ACCESS_TOKEN = "YOUR_ACCESS_TOKEN"
 WHATSAPP_PHONE_NUMBER_ID = "YOUR_PHONE_NUMBER_ID"
@@ -123,78 +135,27 @@ WHATSAPP_PHONE_NUMBER_ID = "YOUR_PHONE_NUMBER_ID"
 
 ---
 
-## 🔁 Message Processing Flow
+# ▶️ Running the Application
 
-1. Receive message via webhook
-2. Convert message to lowercase
-3. Fetch FAQs for the business
-4. Match message with keywords
-5. If match found → send FAQ answer
-6. If no match → send fallback response
+## 1️⃣ Create Virtual Environment (if not created)
 
----
-
-## 🔍 Keyword Matching Logic
-
-* Split keywords by comma
-* Trim and lowercase
-* Check if message contains keyword
-
-Example:
-
-```text
-Message: "What is the price?"
-Keywords: price,cost,charges
-Match: ✅ Yes
+```bash
+python -m venv .venv
 ```
 
 ---
 
-## 💬 Example Conversation
+## 2️⃣ Activate Virtual Environment
 
-**User:**
-What is the price?
+### Windows (PowerShell)
 
-**Bot:**
-Consultation fee is ₹500.
-
----
-
-**User:**
-What are your timings?
-
-**Bot:**
-We are open from 10 AM to 8 PM Monday to Saturday.
-
----
-
-## ⚠️ Fallback Response
-
-```text
-Sorry, I couldn't understand your question. Please contact support.
+```bash
+.venv\Scripts\activate
 ```
 
 ---
 
-## 🧪 Mock Data
-
-Currently using in-memory FAQ data:
-
-```text
-Business Number: 919111111111
-```
-
-FAQs:
-
-* price,cost → ₹500
-* timing,hours → 10 AM – 8 PM
-* location,address → Park Street, Kolkata
-
----
-
-## ▶️ Running the Application
-
-### 1. Install dependencies
+## 3️⃣ Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -202,26 +163,34 @@ pip install -r requirements.txt
 
 ---
 
-### 2. Run server
+## 4️⃣ Run Server (Recommended)
 
 ```bash
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
 ---
 
-### 3. Test health endpoint
+## 5️⃣ Open API Docs
 
 ```text
-http://localhost:8000/health
+http://127.0.0.1:8000/docs
 ```
 
 ---
 
-### 4. Test webhook (Postman / curl)
+## 6️⃣ Test Health Endpoint
+
+```text
+http://127.0.0.1:8000/health
+```
+
+---
+
+## 7️⃣ Test Webhook
 
 ```bash
-curl -X POST http://localhost:8000/webhook/whatsapp \
+curl -X POST http://127.0.0.1:8000/webhook/whatsapp \
 -H "Content-Type: application/json" \
 -d '{
   "from": "919876543210",
@@ -232,50 +201,217 @@ curl -X POST http://localhost:8000/webhook/whatsapp \
 
 ---
 
-## ⚠️ Notes
+# 🧪 Insert Test Data
 
-* WhatsApp API requires valid access token and phone number ID
-* For testing without API, replace sender logic with print statements
-* Real WhatsApp webhook payload is more complex (to be handled later)
+## Insert Business
 
----
-
-## 🧱 Future Enhancements
-
-* 📦 PostgreSQL integration
-* 🏢 Multi-business support
-* 🤖 AI fallback (LLM integration)
-* 📅 Appointment booking
-* 📊 Admin dashboard
-* 🌐 Multi-language support
-* ⚡ Redis caching
+```sql
+INSERT INTO businesses (id, name, whatsapp_phone_number)
+VALUES (
+    gen_random_uuid(),
+    'ABC Clinic',
+    '919111111111'
+);
+```
 
 ---
 
-## 📈 Business Value
+## Insert FAQ
+
+```sql
+INSERT INTO faqs (id, business_id, keywords, answer)
+VALUES (
+    gen_random_uuid(),
+    (SELECT id FROM businesses WHERE whatsapp_phone_number='919111111111'),
+    'price,cost,charges',
+    'Consultation fee is ₹500'
+);
+```
+
+---
+
+# 🐞 Debugging & Common Fixes
+
+## ❌ Uvicorn Not Found
+
+```bash
+pip install uvicorn
+```
+
+Run using:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+---
+
+## ❌ Virtual Environment Not Activated
+
+```bash
+.venv\Scripts\activate
+```
+
+---
+
+## ❌ Pydantic BaseSettings Error
+
+```bash
+pip install pydantic-settings
+```
+
+Update import:
+
+```python
+from pydantic_settings import BaseSettings
+```
+
+---
+
+## ❌ Import Errors
+
+```bash
+pip install -r requirements.txt
+```
+
+Check:
+
+* File names
+* Function names
+* Correct imports
+
+---
+
+## ❌ PostgreSQL Connection Issues
+
+```bash
+psql -U postgres
+```
+
+```sql
+\l
+```
+
+---
+
+## ❌ Tables Not Created
+
+Ensure in `main.py`:
+
+```python
+from app.models import business, faq
+from app.db.base import Base
+from app.db.session import engine
+
+Base.metadata.create_all(bind=engine)
+```
+
+---
+
+## ❌ No Response from Bot
+
+Add debug logs:
+
+```python
+print("Incoming message:", user_message)
+print("FAQs fetched:", faqs)
+print("Matched FAQ:", matched_faq)
+```
+
+---
+
+## ❌ WhatsApp API 401 Error
+
+Temporary fix:
+
+```python
+async def send_message(to: str, message: str):
+    print(f"Sending message to {to}: {message}")
+```
+
+---
+
+## ❌ Port Already in Use
+
+```bash
+netstat -ano | findstr :8000
+```
+
+```bash
+taskkill /PID <PID> /F
+```
+
+---
+
+## ❌ Restart Server
+
+```bash
+CTRL + C
+python -m uvicorn app.main:app --reload
+```
+
+---
+
+# 🔁 Message Processing Flow
+
+1. Receive message via webhook
+2. Convert message to lowercase
+3. Fetch FAQs from DB
+4. Match keywords
+5. Send response
+
+---
+
+# 💬 Example
+
+**User:**
+What is the price?
+
+**Bot:**
+Consultation fee is ₹500.
+
+---
+
+# ⚠️ Notes
+
+* WhatsApp API requires valid token
+* Replace sender logic with print for local testing
+* Real webhook payload is more complex
+
+---
+
+# 🚀 Future Enhancements
+
+* Admin APIs (Add/Edit FAQs)
+* AI fallback (LLM integration)
+* Multi-business SaaS
+* Dashboard UI
+* Appointment booking
+* Analytics
+
+---
+
+# 📈 Business Value
 
 * Saves 2–3 hours daily
-* Handles repetitive queries automatically
+* Automates repetitive queries
 * Improves response speed
-* Scales customer support without hiring
+* Scales support easily
 
 ---
 
-## 🤝 Contribution
+# 🤝 Contribution
 
 Feel free to extend:
 
 * Add database layer
-* Improve keyword matching
+* Improve matching logic
 * Add AI integration
-* Build frontend dashboard
+* Build frontend
 
 ---
 
-## 💡 Author Note
+# 💡 Author Note
 
-This project is a **foundation for a WhatsApp automation SaaS** targeting small businesses like clinics, salons, and restaurants.
-
-You can extend this into a full product with recurring revenue.
-
+This project is a **foundation for a WhatsApp automation SaaS**.
 ---

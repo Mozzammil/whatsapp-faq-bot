@@ -1,19 +1,17 @@
-def match_keywords(message: str, keywords: str) -> bool:
+def find_best_match(user_message: str, faqs: list):
     """
-    Checks if any keyword is present in the message.
-
-    :param message: user message (already lowercase)
-    :param keywords: comma-separated keywords from DB
-    :return: True if match found, else False
+    Find best matching FAQ based on keyword matching
     """
 
-    if not keywords:
-        return False
+    user_message = user_message.lower()
 
-    keyword_list = [k.strip().lower() for k in keywords.split(",")]
+    for faq in faqs:
+        keywords = faq.keywords.split(",")
 
-    for keyword in keyword_list:
-        if keyword in message:
-            return True
+        for keyword in keywords:
+            keyword = keyword.strip().lower()
 
-    return False
+            if keyword in user_message:
+                return faq
+
+    return None

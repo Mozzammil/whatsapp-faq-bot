@@ -1,36 +1,18 @@
-from dataclasses import dataclass
-from typing import List
+from sqlalchemy.orm import Session
+from app.models.faq import FAQ
+from app.models.business import Business
 
 
-@dataclass
-class FAQ:
-    keywords: str
-    answer: str
-
-
-# Mock data (temporary)
-FAKE_FAQ_DB = {
-    "919111111111": [
-        FAQ(
-            keywords="price,cost,charges",
-            answer="Consultation fee is ₹500."
-        ),
-        FAQ(
-            keywords="timing,hours,open",
-            answer="We are open from 10 AM to 8 PM Monday to Saturday."
-        ),
-        FAQ(
-            keywords="location,address",
-            answer="We are located at Park Street, Kolkata."
-        ),
-    ]
-}
-
-
-async def get_faqs_by_business(business_number: str) -> List[FAQ]:
+async def get_faqs_by_business(db: Session, business_number: str):
     """
-    Fetch FAQs for a given business number.
-    Currently using mock data.
+    Fetch FAQs from DB using business phone number
     """
 
-    return FAKE_FAQ_DB.get(business_number, [])
+    faqs = (
+        db.query(FAQ)
+        .join(Business, FAQ.business_id == Business.id)
+        .filter(Business.whatsapp_phone_number == business_number)
+        .all()
+    )
+
+    return faqs
